@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Formulário</title>
+<style>
+  :root {
+    --bg: #f4f6f9; --card: #ffffff; --text: #1d2433; --muted: #5b6475;
+    --border: #d5dbe5; --primary: #1f6feb; --primary-h: #1858c0;
+    --ok-bg: #e6f6ec; --ok: #1a7f37; --err-bg: #fdecec; --err: #c62828;
+    --focus: rgba(31,111,235,.25);
+  }
+  [data-theme="dark"] {
+    --bg: #0f1419; --card: #1a2029; --text: #e6e9ef; --muted: #9aa4b5;
+    --border: #2e3744; --primary: #4c8dff; --primary-h: #6aa1ff;
+    --ok-bg: #12301d; --ok: #4ccb72; --err-bg: #3a1717; --err: #ff6b6b;
+    --focus: rgba(76,141,255,.3);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    transition: background .2s, color .2s; padding: 24px;
+  }
+  .card {
+    width: 100%; max-width: 520px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 14px; padding: 32px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.06);
+  }
+  header { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 24px; }
+  h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  header p { margin: 0; color: var(--muted); font-size: .92rem; }
+  .theme-btn {
+    background: none; border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; width: 38px; height: 38px; cursor: pointer; font-size: 1.1rem; flex-shrink: 0;
+  }
+  .theme-btn:hover { border-color: var(--primary); }
+  .field { margin-bottom: 18px; }
+  label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: 6px; }
+  label .req { color: var(--err); }
+  input, textarea {
+    width: 100%; padding: 11px 12px; font: inherit; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea { min-height: 130px; resize: vertical; }
+  input:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--focus); }
+  .invalid { border-color: var(--err) !important; }
+  .hint { font-size: .8rem; color: var(--err); margin-top: 4px; display: none; }
+  .invalid + .hint { display: block; }
+  .counter { text-align: right; font-size: .78rem; color: var(--muted); margin-top: 4px; }
+  button[type="submit"] {
+    width: 100%; padding: 12px; font: inherit; font-weight: 600; color: #fff;
+    background: var(--primary); border: none; border-radius: 8px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  button[type="submit"]:hover:not(:disabled) { background: var(--primary-h); }
+  button:disabled { opacity: .7; cursor: wait; }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+  .loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg { margin-top: 16px; padding: 12px 14px; border-radius: 8px; font-size: .9rem; display: none; }
+  .msg.ok { display: block; background: var(--ok-bg); color: var(--ok); }
+  .msg.err { display: block; background: var(--err-bg); color: var(--err); }
+</style>
+</head>
+<body>
+<main class="card">
+  <header>
+    <div>
+      <h1>Formulário</h1>
+      <p>Preencha os campos abaixo e clique em enviar.</p>
+    </div>
+    <button class="theme-btn" id="themeBtn" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+  </header>
+
+  <form id="form" novalidate>
+    <div class="field">
+      <label for="nome">Nome <span class="req">*</span></label>
+      <input id="nome" name="Nome" type="text" maxlength="120" autocomplete="name" required>
+      <div class="hint">Informe seu nome.</div>
+    </div>
+    <div class="field">
+      <label for="mensagem">Mensagem <span class="req">*</span></label>
+      <textarea id="mensagem" name="Mensagem" maxlength="2000" required></textarea>
+      <div class="hint">Escreva uma mensagem.</div>
+      <div class="counter"><span id="count">0</span>/2000</div>
+    </div>
+    <button type="submit" id="submitBtn"><span class="spinner"></span><span id="btnText">Enviar</span></button>
+    <div class="msg" id="msg" role="status"></div>
+  </form>
+</main>
+
+<script>
+  // ===== CONFIGURAÇÃO =====
+  const FLOW_URL = "https://defaultbef34cc325ad4433b5d5c8ebb053b2.4f.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/10/workflows/253f66d9c62a4195b82b6c4b88d2a41a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-5HO2gn7cloNrGrwBsoAYIFOKODV6osNJaPJNkd3YUE";
+
+  // ===== TEMA (segue o sistema; botão alterna e lembra a escolha) =====
+  const root = document.documentElement, themeBtn = document.getElementById("themeBtn");
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  function getSaved() { try { return localStorage.getItem("tema"); } catch { return null; } }
+  function applyTheme(t) { root.dataset.theme = t; themeBtn.textContent = t === "dark" ? "☀️" : "🌙"; }
+  applyTheme(getSaved() || (media.matches ? "dark" : "light"));
+  media.addEventListener("change", e => { if (!getSaved()) applyTheme(e.matches ? "dark" : "light"); });
+  themeBtn.addEventListener("click", () => {
+    const t = root.dataset.theme === "dark" ? "light" : "dark";
+    applyTheme(t); try { localStorage.setItem("tema", t); } catch {}
+  });
+
+  // ===== FORMULÁRIO =====
+  const form = document.getElementById("form"), msg = document.getElementById("msg");
+  const btn = document.getElementById("submitBtn"), btnText = document.getElementById("btnText");
+  const mensagem = document.getElementById("mensagem"), count = document.getElementById("count");
+
+  mensagem.addEventListener("input", () => count.textContent = mensagem.value.length);
+  form.querySelectorAll("input, textarea").forEach(el =>
+    el.addEventListener("input", () => el.classList.remove("invalid")));
+
+  function showMsg(type, text) { msg.className = "msg " + type; msg.textContent = text; }
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    msg.className = "msg";
+
+    let valid = true;
+    form.querySelectorAll("[required]").forEach(el => {
+      if (!el.value.trim()) { el.classList.add("invalid"); valid = false; }
+    });
+    if (!valid) return;
+
+    const dados = {
+      Nome: form.Nome.value.trim(),
+      Mensagem: form.Mensagem.value.trim()
+    };
+
+    btn.disabled = true; btn.classList.add("loading"); btnText.textContent = "Enviando...";
+    try {
+      const resp = await fetch(FLOW_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados)
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      showMsg("ok", "✅ Resposta enviada com sucesso! Obrigado.");
+      form.reset(); count.textContent = "0";
+    } catch (err) {
+      console.error(err);
+      showMsg("err", "❌ Não foi possível enviar agora. Tente novamente em instantes.");
+    } finally {
+      btn.disabled = false; btn.classList.remove("loading"); btnText.textContent = "Enviar";
+    }
+  });
+</script>
+</body>
+</html>
